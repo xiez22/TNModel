@@ -12,7 +12,7 @@ Tensor Network models including `MPS`, `1d-SBS` and `CNN-PEPS` for classificatio
 ## Notes
 Examples are in the root folder. They use `PyTorch` and `TensorFlow` as backends respectively.
 
-For `DMRG`, you need to create the corresponding MPO (Matrix Product Operators) for target Hamiltonian. Here is a example:
+For ground state solving with `DMRG`, you need to calculate the corresponding MPO (Matrix Product Operators) for target Hamiltonian. Here is an example:
 ![mpo](img/mpo.png)
 
 In MPS for image classification, the pixels and labels are input to the MPS like this:
@@ -28,7 +28,7 @@ The structure of PEPS comes from [Supervised Learning with Projected Entangled P
 
 
 ## Installation
-- You can choose to use `PyTorch` or `TensorFlow 2` backend.
+- You can choose to use `PyTorch` or `TensorFlow 2` as backend.
 - Install `tensornetwork>=0.4.4`, `numpy` and `tqdm`.
 - Clone this repo.
 
