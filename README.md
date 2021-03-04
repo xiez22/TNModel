@@ -6,15 +6,31 @@ Tensor Network models including `MPS`, `1d-SBS` and `CNN-PEPS` for classificatio
 ![](https://img.shields.io/badge/MPS-TensowFlow-green.svg) ![](https://img.shields.io/badge/SBS-TensowFlow-yellow.svg) ![](https://img.shields.io/badge/PEPS-TensorFlow-red.svg)
 
 ![](https://img.shields.io/badge/DMRG-XXZ-green.svg) ![](https://img.shields.io/badge/DMRG-Ising-green.svg)
+
 (Green - Finished, Yellow - With Some Problems, Red - Not Finished)
+
+## 
+Examples are in the root folder. They use `PyTorch` and `TensorFlow` as backends respectively.
+
+For `DMRG`, you need to create the corresponding MPO (Matrix Product Operators) for target Hamiltonian. Here is a example:
+![mpo](img/mpo.png)
+
+In MPS for image classification, the pixels and labels are input to the MPS like this:
+![mps](img/mps.png)
+
+As for 1d-SBS, the structure is like this:
+![sbs](img/sbs.png)
+where the red nodes are "Copy Tensors". The dangling edges of 1d-SBS which denote the output are the inner product of the strings:
+![inner](img/inner.png)
+
+The structure of PEPS comes from [Supervised Learning with Projected Entangled Pair States](https://arxiv.org/abs/2009.09932):
+![peps](img/peps.png)
+
 
 ## Installation
 - You can choose to use `PyTorch` or `TensorFlow 2` backend.
 - Install `tensornetwork>=0.4.4`, `numpy` and `tqdm`.
 - Clone this repo.
-
-## Examples
-For `PyTorch` and `TensorFlow` backends respectively.
 
 ## Notice
 __This is a very early version and it is unstable.__
