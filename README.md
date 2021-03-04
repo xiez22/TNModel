@@ -9,7 +9,7 @@ Tensor Network models including `MPS`, `1d-SBS` and `CNN-PEPS` for classificatio
 
 (Green - Finished, Yellow - With Some Problems, Red - Not Finished)
 
-## 
+## Notes
 Examples are in the root folder. They use `PyTorch` and `TensorFlow` as backends respectively.
 
 For `DMRG`, you need to create the corresponding MPO (Matrix Product Operators) for target Hamiltonian. Here is a example:
