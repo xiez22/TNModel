@@ -11,8 +11,7 @@ tn.set_default_backend('pytorch')
 def initialize_spin_mps(N: int, D: int, dtype: Type[np.number]):
 	return tn.FiniteMPS.random([2] * N, [D] * (N - 1), dtype=dtype)
 
-def initialize_TF_mpo(Jx: np.ndarray, Bz: np.ndarray,
-											 dtype: Type[np.number]):
+def initialize_TF_mpo(Jx: np.ndarray, Bz: np.ndarray, dtype: Type[np.number]):
 	result = tn.FiniteTFI(Jx=Jx, Bz=Bz, dtype=dtype)
 	return result
 
