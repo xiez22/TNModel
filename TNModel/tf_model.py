@@ -3,11 +3,12 @@ import tensornetwork as tn
 import TNModel.simple_mps as simple_mps
 
 class MPSLayer(tf.keras.layers.Layer):
-	def __init__(self, hyper_params):
+	def __init__(self, hyper_params, vectorized=False):
 		super(MPSLayer, self).__init__()
 
 		self.hyper_params = hyper_params
 		self.single_rank = hyper_params['rank']//2
+		self.vectorized = vectorized
 
 		mps = simple_mps.simple_mps(
 			nodes=hyper_params['rank']+1,
@@ -59,10 +60,17 @@ class MPSLayer(tf.keras.layers.Layer):
 
 			return ans
 
-		result = tf.map_fn(
-			lambda vec: f(vec, self.mps_var),
-			inputs
-		)
+		result = None
+		if self.vectorized:
+			resut = tf.vectorized_fn(
+				lambda vec: f(vec, self.mps_var),
+				inputs
+			)
+		else:
+			result = tf.map_fn(
+				lambda vec: f(vec, self.mps_var),
+				inputs
+			)
 
 		return tf.reshape(result, [-1, 10])
 
