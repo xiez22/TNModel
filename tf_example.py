@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import tensornetwork as tn
 import TNModel.tf_model as tf_model
+from TNModel.utils import *
 
 # If you want to run in eager mode, just comment those two lines.
 from tensorflow.python.framework.ops import disable_eager_execution
@@ -13,11 +14,12 @@ tn.set_default_backend('tensorflow')
 hyper_params = {
 	'rank': 28*28,
 	'phys_dim': 2,
-	'bond_dim': 6,
+	'bond_dim': 3,
 	'labels': 10,
-	'string_cnt': 2,
-	'model': 'mps',  # mps (finished) or 1d-sbs (runs with bugs)
-	'vectorized': False  # vectorized_fn is only supported in part of the machines.
+	'string_cnt': 3,  # for 1d-sbs only
+	'sbs_op': 'mean',  # mean or prod , alternative choice for 1d-sbs contraction
+	'model': 'mps',  # mps (finished) or 1d-sbs (half-working)
+	'vectorized': True # vectorized_map is only supported in part of the machines.
 }
 
 
@@ -41,12 +43,12 @@ if __name__ == '__main__':
 
 	if hyper_params['model'] == 'mps':
 		model = tf.keras.models.Sequential([
-			tf_model.MPSLayer(hyper_params=hyper_params, vectorized=hyper_params['vectorized']),
+			tf_model.MPSLayer(hyper_params=hyper_params),
 			tf.keras.layers.Softmax()
 		])
 	elif hyper_params['model'] == '1d-sbs': 
 		model = tf.keras.models.Sequential([
-			tf_model.SBS1dLayer(hyper_params=hyper_params, vectorized=hyper_params['vectorized']),
+			tf_model.SBS1dLayer(hyper_params=hyper_params),
 			tf.keras.layers.Softmax()
 		])
 	else:
@@ -54,11 +56,15 @@ if __name__ == '__main__':
 
 	print('Compiling model...')
 	model.compile(
-		optimizer='adam',
+		optimizer='rmsprop',
 		loss='sparse_categorical_crossentropy',
 		metrics=['accuracy']	
 	)
 	print('Finished!')
 
-	model.fit(x_train, y_train, epochs=50, verbose=1, batch_size=8)
-	model.evaluate(x_test, y_test, batch_size=1, verbose=1)
+	hist = LossHistory()
+	model.fit(x_train, y_train, epochs=5, verbose=1, batch_size=128, use_multiprocessing=True, callbacks=[hist])
+	hist.loss_plot(loss_type='batch')
+
+	result = model.evaluate(x_test, y_test, batch_size=128, verbose=1)
+	print('Evaluate Results:', result)

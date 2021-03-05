@@ -12,7 +12,6 @@ class MPSLayer(nn.Module):
 
 		self.hyper_params = hyper_params
 		self.single_rank = hyper_params['rank']//2
-		
 
 		mps = simple_mps.simple_mps(
 			nodes=hyper_params['rank']+1,
@@ -63,7 +62,6 @@ class MPSLayer(nn.Module):
 
 		ans = torch.stack([f(vec, self.mps_var) for vec in inputs], dim=0)
 		return ans
-
 
 
 class SBS1dLayer(nn.Module):
@@ -152,8 +150,8 @@ class PEPSLayer(nn.Module):
 			bond_dim=bond_dim,
 			features_in=features_in,
 			features_out=features_out,
-			std=1e-2,
-			init_method='uniform'
+			std=1e-3,
+			init_method='eye'
 		)
 
 		self.peps_var = [[nn.Parameter(torch.from_numpy(i).float(), requires_grad=True) for i in line] for line in peps]
@@ -209,7 +207,8 @@ class PEPSLayer(nn.Module):
 		result = contractors.auto(contracted_peps).tensor
 		# print(result[0].item())
 
-		return result.view([10])
+		result = result.view([10]) / torch.sum(result)
+		return result
 
 	def forward(self, inputs):
 		result = []
@@ -231,7 +230,6 @@ class PEPSCNNLayer(nn.Module):
 			kernel_size=(4, 4),
 			stride=(4, 4)
 		)
-		self.dropout = nn.Dropout(0.0)
 		
 		self.peps_layer = PEPSLayer(
 			features_in=4,
@@ -244,7 +242,9 @@ class PEPSCNNLayer(nn.Module):
 	def forward(self, inputs):
 		inputs = inputs.view(-1, 1, 28, 28)
 
-		out = self.dropout(torch.sigmoid(self.cnn_layer(inputs)))
+		out = torch.sigmoid(self.cnn_layer(inputs))
+		out = out / torch.sum(out, dim=1, keepdim=True)
+
 		out = self.peps_layer(out)
 
 		return out

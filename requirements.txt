@@ -1,0 +1,7 @@
+tensorflow
+matplotlib
+numpy
+tqdm
+seaborn
+tensornetwork
+pytorch

@@ -13,12 +13,12 @@ tn.set_default_backend('pytorch')
 hyper_params = {
 	'rank': 28*28,
 	'phys_dim': 2,
-	'bond_dim': 2,
+	'bond_dim': 6,
 	'string_cnt': 2, # of strings in SBS 
 	'labels': 10,
 	'device': 'cpu',
-	'batch_size': 64,
-	'model': 'peps'
+	'batch_size': 16,
+	'model': 'mps'
 }
 
 if hyper_params['model']!='peps':

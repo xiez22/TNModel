@@ -3,12 +3,12 @@ import tensornetwork as tn
 import TNModel.simple_mps as simple_mps
 
 class MPSLayer(tf.keras.layers.Layer):
-	def __init__(self, hyper_params, vectorized=False):
+	def __init__(self, hyper_params):
 		super(MPSLayer, self).__init__()
 
 		self.hyper_params = hyper_params
 		self.single_rank = hyper_params['rank']//2
-		self.vectorized = vectorized
+		self.vectorized = hyper_params['vectorized']
 
 		mps = simple_mps.simple_mps(
 			nodes=hyper_params['rank']+1,
@@ -62,7 +62,7 @@ class MPSLayer(tf.keras.layers.Layer):
 
 		result = None
 		if self.vectorized:
-			resut = tf.vectorized_fn(
+			result = tf.vectorized_map(
 				lambda vec: f(vec, self.mps_var),
 				inputs
 			)
@@ -76,14 +76,15 @@ class MPSLayer(tf.keras.layers.Layer):
 
 
 class SBS1dLayer(tf.keras.layers.Layer):
-	def __init__(self, hyper_params, vectorized=False):
+	def __init__(self, hyper_params):
 		super(SBS1dLayer, self).__init__()
 
 		self.hyper_params = hyper_params
 		self.single_rank = hyper_params['rank']//2
 		self.xnodes = hyper_params['rank']+1
 		self.ynodes = hyper_params['string_cnt']
-		self.vectorized = vectorized
+		self.vectorized = hyper_params['vectorized']
+		self.sbs_op = hyper_params['sbs_op']
 
 		mps = [simple_mps.simple_mps(
 			nodes=self.xnodes,
@@ -150,11 +151,19 @@ class SBS1dLayer(tf.keras.layers.Layer):
 		return tf.reshape(result, [-1, 10])
 
 	def call(self, inputs):
-		result = []
+		if self.sbs_op == 'prod':
+			result = None
+			for mps in self.mps_var:
+				if result is None:
+					result = self.func(inputs, mps, vectorized=self.vectorized)
+				else:
+					result = result * self.func(inputs, mps, vectorized=self.vectorized)
+		elif self.sbs_op == 'mean':
+			result = []
+			for mps in self.mps_var:
+				result.append(self.func(inputs, mps, vectorized=self.vectorized))
+			result = tf.reduce_mean(tf.stack(result, axis=0), axis=0)
+		else:
+			raise NotImplementedError()
 
-		for mps in self.mps_var:
-			result.append(self.func(inputs, mps, vectorized=self.vectorized))
-
-		ans = tf.reduce_prod(tf.stack(result, axis=0), axis=0)
-
-		return ans
+		return result

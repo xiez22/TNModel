@@ -1,11 +1,11 @@
 # TNModel
 Tensor Network models including `MPS`, `1d-SBS` and `CNN-PEPS` for classification with `PyTorch` or `TensorFlow 2` backend and optimizing MPO for Heisenberg XXZ model and 1d-Ising model with Density Matrix Renormalization Group (DMRG). We implement the tensor network algorithms with [Google's tensornetwork](https://github.com/google/TensorNetwork.git).
 
-![](https://img.shields.io/badge/MPS-PyTorch-green.svg) ![](https://img.shields.io/badge/SBS-PyTorch-green.svg) ![](https://img.shields.io/badge/PEPS-PyTorch-yellow.svg)
+![](https://img.shields.io/badge/MPS-PyTorch-a.svg) ![](https://img.shields.io/badge/SBS-PyTorch-a.svg) ![](https://img.shields.io/badge/PEPS-PyTorch-yellow.svg)
 
-![](https://img.shields.io/badge/MPS-TensowFlow-green.svg) ![](https://img.shields.io/badge/SBS-TensowFlow-yellow.svg) ![](https://img.shields.io/badge/PEPS-TensorFlow-red.svg)
+![](https://img.shields.io/badge/MPS-TensowFlow-a.svg) ![](https://img.shields.io/badge/SBS-TensowFlow-a.svg) ![](https://img.shields.io/badge/PEPS-TensorFlow-red.svg)
 
-![](https://img.shields.io/badge/DMRG-XXZ-green.svg) ![](https://img.shields.io/badge/DMRG-Ising-green.svg)
+![](https://img.shields.io/badge/DMRG-XXZ-a.svg) ![](https://img.shields.io/badge/DMRG-Ising-a.svg)
 
 (Green - Finished, Yellow - With Some Problems, Red - Not Finished)
 
