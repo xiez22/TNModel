@@ -1,8 +1,12 @@
+import os
+os.environ['TF_DISABLE_MLC'] = '1'
+
 import numpy as np
 import tensorflow as tf
 import tensornetwork as tn
 import TNModel.tf_model as tf_model
 from TNModel.utils import *
+
 
 # If you want to run in eager mode, just comment those two lines.
 from tensorflow.python.framework.ops import disable_eager_execution
@@ -14,9 +18,9 @@ tn.set_default_backend('tensorflow')
 hyper_params = {
 	'rank': 28*28,
 	'phys_dim': 2,
-	'bond_dim': 3,
+	'bond_dim': 6,
 	'labels': 10,
-	'string_cnt': 3,  # for 1d-sbs only
+	'string_cnt': 4,  # for 1d-sbs only
 	'sbs_op': 'mean',  # mean or prod , alternative choice for 1d-sbs contraction
 	'model': 'mps',  # mps (finished) or 1d-sbs (half-working)
 	'vectorized': True # vectorized_map is only supported in part of the machines.

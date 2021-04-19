@@ -9,90 +9,98 @@ import TNModel.pytorch_model as pytorch_model
 
 tn.set_default_backend('pytorch')
 
+test_mps = tn.FiniteMPS.random(
+    d=[2, 2, 2], D=[2, 2], dtype=float)
+
 # HyperParams
 hyper_params = {
-	'rank': 28*28,
-	'phys_dim': 2,
-	'bond_dim': 6,
-	'string_cnt': 2, # of strings in SBS 
-	'labels': 10,
-	'device': 'cpu',
-	'batch_size': 16,
-	'model': 'mps'
+    'rank': 28*28,
+    'phys_dim': 2,
+    'bond_dim': 4,
+    'string_cnt': 2,  # of strings in SBS
+    'labels': 10,
+    'device': 'cpu',
+    'batch_size': 2,
+    'model': 'peps',
+    'max_singular_values': 32
 }
 
-if hyper_params['model']!='peps':
-	transform = transforms.Compose([
-		transforms.ToTensor()
-	])
+if hyper_params['model'] != 'peps':
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
 else:
-	transform = transforms.Compose([
-		transforms.ToTensor(),
-		transforms.Normalize(mean=(0.5,), std=(1.0,))
-	])
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.5,), std=(1.0,))
+    ])
 
-mnist_train = datasets.MNIST('./data/', train=True, download=True, transform=transform)
-mnist_test = datasets.MNIST('./data/', train=False, download=True, transform=transform)
+mnist_train = datasets.MNIST(
+    './data/', train=True, download=True, transform=transform)
+mnist_test = datasets.MNIST('./data/', train=False,
+                            download=True, transform=transform)
 mnist_test = Data.Subset(dataset=mnist_test, indices=[i for i in range(300)])
-train_loader = Data.DataLoader(dataset=mnist_train, batch_size=hyper_params['batch_size'], shuffle=True)
-test_loader = Data.DataLoader(dataset=mnist_test, batch_size=hyper_params['batch_size'], shuffle=False)
+train_loader = Data.DataLoader(
+    dataset=mnist_train, batch_size=hyper_params['batch_size'], shuffle=False)
+test_loader = Data.DataLoader(
+    dataset=mnist_test, batch_size=hyper_params['batch_size'], shuffle=False)
 
 # Build Model
 print('Building Model...')
 
 net = None
-if hyper_params['model']=='mps':
-	net = pytorch_model.MPSLayer(hyper_params)
-elif hyper_params['model']=='sbs1d':
-	net = pytorch_model.SBS1dLayer(hyper_params)
-elif hyper_params['model']=='peps':
-	net = pytorch_model.PEPSCNNLayer(hyper_params)
+if hyper_params['model'] == 'mps':
+    net = pytorch_model.MPSLayer(hyper_params)
+elif hyper_params['model'] == 'sbs1d':
+    net = pytorch_model.SBS1dLayer(hyper_params)
+elif hyper_params['model'] == 'peps':
+    net = pytorch_model.PEPSCNNLayer(hyper_params)
 
 optimizer = optim.Adam(net.parameters(), lr=1e-4, weight_decay=0.0)
 loss_func = nn.CrossEntropyLoss()
 
 
 def evaluate():
-	print('Evaluating...')
-	net.eval()
-	total_item = 0
-	total_acc = 0
-	
-	with torch.no_grad():
-		for batchx, batchy in tqdm(test_loader):
-			if hyper_params['model']!='peps':
-				batchx = batchx.view(-1, 28*28)
-				xcos = 1.0 - batchx
-				xsin = batchx
+    print('Evaluating...')
+    net.eval()
+    total_item = 0
+    total_acc = 0
 
-				batchx = torch.stack([xcos, xsin], dim=-1)
+    with torch.no_grad():
+        for batchx, batchy in tqdm(test_loader):
+            if hyper_params['model'] != 'peps':
+                batchx = batchx.view(-1, 28*28)
+                xcos = 1.0 - batchx
+                xsin = batchx
 
-			pred = net(batchx)
-			total_item += batchx.shape[0]
-			total_acc += torch.sum(torch.argmax(pred, dim=1)==batchy).item()
+                batchx = torch.stack([xcos, xsin], dim=-1)
 
-		print(f'Acc: {total_acc}/{total_item}   {total_acc/total_item}')
-	net.train()
+            pred = net(batchx)
+            total_item += batchx.shape[0]
+            total_acc += torch.sum(torch.argmax(pred, dim=1) == batchy).item()
+
+        print(f'Acc: {total_acc}/{total_item}   {total_acc/total_item}')
+    net.train()
 
 
 print('Start training...')
 for epoch in range(10):
-	print(f'Epoch {epoch}')
-	for step, (batchx, batchy) in enumerate(train_loader):
-		if not hyper_params['model']=='peps':
-			batchx = batchx.view(-1, 28*28)
-			xcos = 1.0 - batchx
-			xsin = batchx
+    print(f'Epoch {epoch}')
+    for step, (batchx, batchy) in enumerate(train_loader):
+        if not hyper_params['model'] == 'peps':
+            batchx = batchx.view(-1, 28*28)
+            xcos = 1.0 - batchx
+            xsin = batchx
 
-			batchx = torch.stack([xcos, xsin], dim=-1)
+            batchx = torch.stack([xcos, xsin], dim=-1)
 
-		pred = net(batchx)
-		loss = loss_func(pred, batchy)
-		
-		optimizer.zero_grad()
-		loss.backward()
-		optimizer.step()
+        pred = net(batchx)
+        loss = loss_func(pred, batchy)
 
-		print(f'Step:{step} Loss:{loss.item()}')
-		if step % 50 == 0:
-			evaluate()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        print(f'Step:{step} Loss:{loss.item()}')
+        if step % 50 == 0:
+            evaluate()
