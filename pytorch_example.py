@@ -6,8 +6,21 @@ import torch.utils.data as Data
 from torch import optim
 from tqdm import tqdm
 import TNModel.pytorch_model as pytorch_model
+import numpy as np
+import random
 
 tn.set_default_backend('pytorch')
+
+
+def setup_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
+setup_seed(1111)
 
 test_mps = tn.FiniteMPS.random(
     d=[2, 2, 2], D=[2, 2], dtype=float)
@@ -15,12 +28,12 @@ test_mps = tn.FiniteMPS.random(
 # HyperParams
 hyper_params = {
     'rank': 28*28,
-    'phys_dim': 2,
-    'bond_dim': 4,
+    'phys_dim': 10,
+    'bond_dim': 2,
     'string_cnt': 2,  # of strings in SBS
     'labels': 10,
     'device': 'cpu',
-    'batch_size': 2,
+    'batch_size': 16,
     'model': 'peps',
     'max_singular_values': 32
 }
@@ -32,14 +45,14 @@ if hyper_params['model'] != 'peps':
 else:
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean=(0.5,), std=(1.0,))
+        transforms.Normalize(mean=(0.0,), std=(1.0,))
     ])
 
 mnist_train = datasets.MNIST(
     './data/', train=True, download=True, transform=transform)
 mnist_test = datasets.MNIST('./data/', train=False,
                             download=True, transform=transform)
-mnist_test = Data.Subset(dataset=mnist_test, indices=[i for i in range(300)])
+mnist_test = Data.Subset(dataset=mnist_test, indices=[i for i in range(500)])
 train_loader = Data.DataLoader(
     dataset=mnist_train, batch_size=hyper_params['batch_size'], shuffle=False)
 test_loader = Data.DataLoader(
@@ -56,7 +69,7 @@ elif hyper_params['model'] == 'sbs1d':
 elif hyper_params['model'] == 'peps':
     net = pytorch_model.PEPSCNNLayer(hyper_params)
 
-optimizer = optim.Adam(net.parameters(), lr=1e-4, weight_decay=0.0)
+optimizer = optim.AdamW(net.parameters(), lr=5e-3, weight_decay=1e-3)
 loss_func = nn.CrossEntropyLoss()
 
 
@@ -102,5 +115,5 @@ for epoch in range(10):
         optimizer.step()
 
         print(f'Step:{step} Loss:{loss.item()}')
-        if step % 50 == 0:
-            evaluate()
+        # if step % 50 == 0:
+        #     evaluate()
