@@ -33,10 +33,15 @@ hyper_params = {
     'string_cnt': 2,  # of strings in SBS
     'labels': 10,
     'device': 'cpu',
-    'batch_size': 16,
+    'batch_size': 4,
     'model': 'peps',
-    'max_singular_values': 32
+    'max_singular_values': 32,
+    'truncate_svd': True
 }
+
+# Serialize Hyper Params
+param_str = f"{hyper_params['model']}_bond_{hyper_params['bond_dim']}_phys_{hyper_params['phys_dim']}"
+
 
 if hyper_params['model'] != 'peps':
     transform = transforms.Compose([
@@ -54,7 +59,7 @@ mnist_test = datasets.MNIST('./data/', train=False,
                             download=True, transform=transform)
 mnist_test = Data.Subset(dataset=mnist_test, indices=[i for i in range(500)])
 train_loader = Data.DataLoader(
-    dataset=mnist_train, batch_size=hyper_params['batch_size'], shuffle=False)
+    dataset=mnist_train, batch_size=hyper_params['batch_size'], shuffle=True)
 test_loader = Data.DataLoader(
     dataset=mnist_test, batch_size=hyper_params['batch_size'], shuffle=False)
 
@@ -73,7 +78,13 @@ optimizer = optim.AdamW(net.parameters(), lr=5e-3, weight_decay=1e-3)
 loss_func = nn.CrossEntropyLoss()
 
 
-def evaluate():
+loss_step = []
+loss_value = []
+acc_step = []
+acc_value = []
+
+
+def evaluate(total_step):
     print('Evaluating...')
     net.eval()
     total_item = 0
@@ -93,9 +104,13 @@ def evaluate():
             total_acc += torch.sum(torch.argmax(pred, dim=1) == batchy).item()
 
         print(f'Acc: {total_acc}/{total_item}   {total_acc/total_item}')
+        acc_step.append(total_step)
+        acc_value.append(total_acc/total_item)
+
     net.train()
 
 
+total_step = 0
 print('Start training...')
 for epoch in range(10):
     print(f'Epoch {epoch}')
@@ -114,6 +129,20 @@ for epoch in range(10):
         loss.backward()
         optimizer.step()
 
-        print(f'Step:{step} Loss:{loss.item()}')
-        # if step % 50 == 0:
-        #     evaluate()
+        print(f'Epoch: {epoch} Step:{step} Loss:{loss.item()}')
+        loss_step.append(total_step)
+        loss_value.append(loss.item())
+
+        if step % 50 == 0:
+            evaluate(total_step)
+
+            # Write To File
+            with open(f'logs/{param_str}_loss.log', 'wt') as f:
+                for s, l in zip(loss_step, loss_value):
+                    f.write(f'{s},{l}\n')
+
+            with open(f'logs/{param_str}_acc.log', 'wt') as f:
+                for s, l in zip(acc_step, acc_value):
+                    f.write(f'{s},{l}\n')
+
+        total_step += 1

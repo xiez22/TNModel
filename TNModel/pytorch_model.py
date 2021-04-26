@@ -139,7 +139,7 @@ class SBS1dLayer(nn.Module):
 
 
 class PEPSLayer(nn.Module):
-    def __init__(self, features_in, features_out, xnodes, ynodes, max_singular_values=16, bond_dim=6, device='cpu'):
+    def __init__(self, features_in, features_out, xnodes, ynodes, max_singular_values=16, bond_dim=6, device='cpu', truncate_svd=False):
         super(PEPSLayer, self).__init__()
 
         self.features_in = features_in
@@ -148,6 +148,7 @@ class PEPSLayer(nn.Module):
         self.ynodes = ynodes
         self.device = device
         self.max_singular_values = max_singular_values
+        self.truncate_svd = truncate_svd
 
         peps, self.index_result = simple_peps.simple_peps(
             xnodes=xnodes,
@@ -205,7 +206,7 @@ class PEPSLayer(nn.Module):
 
         # Contract
         # Contract the features
-        contracted_nodes = []
+        # contracted_nodes = []
         for i in range(self.xnodes):
             for j in range(self.ynodes):
                 input_nodes[i][j] = input_nodes[i][j] @ peps_nodes[i][j]
@@ -213,216 +214,216 @@ class PEPSLayer(nn.Module):
                 input_nodes[i][j].tensor = input_nodes[i][j].tensor / \
                     input_nodes[i][j].tensor.norm()
 
-                contracted_nodes.append(input_nodes[i][j])
+                # contracted_nodes.append(input_nodes[i][j])
 
-        # # Contract each row
-        # left_nodes: List[tn.Node] = input_nodes[0]
-        # right_nodes: List[tn.Node] = input_nodes[self.xnodes-1]
-        # middle_nodes: List[tn.Node] = input_nodes[cx]
+        # Contract each row
+        left_nodes: List[tn.Node] = input_nodes[0]
+        right_nodes: List[tn.Node] = input_nodes[self.xnodes-1]
+        middle_nodes: List[tn.Node] = input_nodes[cx]
 
-        # for i in range(1, cx):
-        #     for j in range(self.ynodes):
-        #         left_nodes[j] = left_nodes[j] @ input_nodes[i][j]
-        #         left_nodes[j].name = f'l_{j}'
+        for i in range(1, cx):
+            for j in range(self.ynodes):
+                left_nodes[j] = left_nodes[j] @ input_nodes[i][j]
+                left_nodes[j].name = f'l_{j}'
 
-        #     # # Row Normalization
-        #     # row_norm = torch.mean(torch.stack(
-        #     #     [t.tensor.norm() for t in left_nodes]))
-        #     # for t in left_nodes:
-        #     #     t.tensor = t.tensor / row_norm
+            # Row Normalization
+            row_norm = torch.mean(torch.stack(
+                [t.tensor.norm() for t in left_nodes]))
+            for t in left_nodes:
+                t.tensor = t.tensor / row_norm
 
-        #     # # RQ Decomposition
-        #     # for j in range(self.ynodes-1):
-        #     #     left_edges = []
-        #     #     right_edges = []
+            # RQ Decomposition
+            for j in range(self.ynodes-1):
+                left_edges = []
+                right_edges = []
 
-        #     #     for edge in left_nodes[j].edges:
-        #     #         nxt_node_name = edge.node1.name if edge.node1.name != f'l_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
+                for edge in left_nodes[j].edges:
+                    nxt_node_name = edge.node1.name if edge.node1.name != f'l_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
 
-        #     #         if nxt_node_name[0] == 'p':
-        #     #             right_edges.append(edge)
-        #     #         elif nxt_node_name == f'l_{j-1}':
-        #     #             right_edges.append(edge)
-        #     #         else:
-        #     #             left_edges.append(edge)
+                    if nxt_node_name[0] == 'p':
+                        right_edges.append(edge)
+                    elif nxt_node_name == f'l_{j-1}':
+                        right_edges.append(edge)
+                    else:
+                        left_edges.append(edge)
 
-        #     #     node1, node2 = tn.split_node_rq(
-        #     #         left_nodes[j], left_edges=left_edges, right_edges=right_edges)
-        #     #     left_nodes[j] = node2
-        #     #     left_nodes[j+1] = left_nodes[j+1] @ node1
-        #     #     # left_nodes[j+1].tensor = left_nodes[j+1].tensor / \
-        #     #     #     left_nodes[j+1].tensor.norm()
-        #     #     left_nodes[j].name = f'l_{j}'
-        #     #     left_nodes[j+1].name = f'l_{j+1}'
+                node1, node2 = tn.split_node_rq(
+                    left_nodes[j], left_edges=left_edges, right_edges=right_edges)
+                left_nodes[j] = node2
+                left_nodes[j+1] = left_nodes[j+1] @ node1
+                # left_nodes[j+1].tensor = left_nodes[j+1].tensor / \
+                #     left_nodes[j+1].tensor.norm()
+                left_nodes[j].name = f'l_{j}'
+                left_nodes[j+1].name = f'l_{j+1}'
 
-        #     # # SVD
-        #     # for j in range(self.ynodes-1, 0, -1):
-        #     #     tmp_node = left_nodes[j] @ left_nodes[j-1]
-        #     #     left_edges = []
-        #     #     right_edges = []
+            # SVD
+            for j in range(self.ynodes-1, 0, -1):
+                tmp_node = left_nodes[j] @ left_nodes[j-1]
+                left_edges = []
+                right_edges = []
 
-        #     #     for edge in tmp_node.edges:
-        #     #         nxt_node_name = edge.node1.name if edge.node1.name != f'l_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
+                for edge in tmp_node.edges:
+                    nxt_node_name = edge.node1.name if edge.node1.name != f'l_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
 
-        #     #         if nxt_node_name == f'p_{i+1}_{j}':
-        #     #             left_edges.append(edge)
-        #     #         elif nxt_node_name == f'p_{i+1}_{j-1}':
-        #     #             right_edges.append(edge)
-        #     #         elif nxt_node_name == f'l_{j+1}':
-        #     #             left_edges.append(edge)
-        #     #         else:
-        #     #             right_edges.append(edge)
+                    if nxt_node_name == f'p_{i+1}_{j}':
+                        left_edges.append(edge)
+                    elif nxt_node_name == f'p_{i+1}_{j-1}':
+                        right_edges.append(edge)
+                    elif nxt_node_name == f'l_{j+1}':
+                        left_edges.append(edge)
+                    else:
+                        right_edges.append(edge)
 
-        #     #     node1, node2, _ = tn.split_node(
-        #     #         tmp_node, left_edges=left_edges, right_edges=right_edges, max_singular_values=self.max_singular_values)
+                node1, node2, _ = tn.split_node(
+                    tmp_node, left_edges=left_edges, right_edges=right_edges, max_singular_values=self.max_singular_values)
 
-        #     #     left_nodes[j] = node1
-        #     #     left_nodes[j-1] = node2
-        #     #     left_nodes[j].name = f'l_{j}'
-        #     #     left_nodes[j-1].name = f'l_{j-1}'
+                left_nodes[j] = node1
+                left_nodes[j-1] = node2
+                left_nodes[j].name = f'l_{j}'
+                left_nodes[j-1].name = f'l_{j-1}'
 
-        #     #     # QR Decomposition
-        #     #     left_edges = []
-        #     #     right_edges = []
+                # QR Decomposition
+                left_edges = []
+                right_edges = []
 
-        #     #     for edge in left_nodes[j].edges:
-        #     #         if not edge.node2 and not edge.node1:
-        #     #             continue
-        #     #         nxt_node_name = edge.node1.name if edge.node1.name != f'l_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
+                for edge in left_nodes[j].edges:
+                    if not edge.node2 and not edge.node1:
+                        continue
+                    nxt_node_name = edge.node1.name if edge.node1.name != f'l_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
 
-        #     #         if nxt_node_name[0] == 'p':
-        #     #             left_edges.append(edge)
-        #     #         elif nxt_node_name == f'l_{j+1}':
-        #     #             left_edges.append(edge)
-        #     #         else:
-        #     #             right_edges.append(edge)
+                    if nxt_node_name[0] == 'p':
+                        left_edges.append(edge)
+                    elif nxt_node_name == f'l_{j+1}':
+                        left_edges.append(edge)
+                    else:
+                        right_edges.append(edge)
 
-        #     #     node1, node2 = tn.split_node_qr(
-        #     #         left_nodes[j], left_edges=left_edges, right_edges=right_edges)
+                node1, node2 = tn.split_node_qr(
+                    left_nodes[j], left_edges=left_edges, right_edges=right_edges)
 
-        #     #     left_nodes[j] = node1
-        #     #     left_nodes[j].name = f'l_{j}'
-        #     #     left_nodes[j-1] = node2 @ left_nodes[j-1]
-        #     #     # left_nodes[j-1].tensor = left_nodes[j-1].tensor / \
-        #     #     #     left_nodes[j-1].tensor.norm()
-        #     #     left_nodes[j-1].name = f'l_{j-1}'
+                left_nodes[j] = node1
+                left_nodes[j].name = f'l_{j}'
+                left_nodes[j-1] = node2 @ left_nodes[j-1]
+                # left_nodes[j-1].tensor = left_nodes[j-1].tensor / \
+                #     left_nodes[j-1].tensor.norm()
+                left_nodes[j-1].name = f'l_{j-1}'
 
-        # for i in range(self.xnodes-2, cx, -1):
-        #     for j in range(self.ynodes):
-        #         right_nodes[j] = right_nodes[j]@input_nodes[i][j]
-        #         right_nodes[j].name = f'r_{j}'
+        for i in range(self.xnodes-2, cx, -1):
+            for j in range(self.ynodes):
+                right_nodes[j] = right_nodes[j]@input_nodes[i][j]
+                right_nodes[j].name = f'r_{j}'
 
-        #     # # Row Normalization
-        #     # row_norm = torch.mean(torch.stack(
-        #     #     [t.tensor.norm() for t in right_nodes]))
-        #     # for t in right_nodes:
-        #     #     t.tensor = t.tensor / row_norm
+            # Row Normalization
+            row_norm = torch.mean(torch.stack(
+                [t.tensor.norm() for t in right_nodes]))
+            for t in right_nodes:
+                t.tensor = t.tensor / row_norm
 
-        #     # # RQ Decomposition
-        #     # for j in range(self.ynodes-1):
-        #     #     left_edges = []
-        #     #     right_edges = []
+            # RQ Decomposition
+            for j in range(self.ynodes-1):
+                left_edges = []
+                right_edges = []
 
-        #     #     for edge in right_nodes[j].edges:
-        #     #         if not edge.node2 and not edge.node1:
-        #     #             continue
-        #     #         nxt_node_name = edge.node1.name if edge.node1.name != f'r_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
+                for edge in right_nodes[j].edges:
+                    if not edge.node2 and not edge.node1:
+                        continue
+                    nxt_node_name = edge.node1.name if edge.node1.name != f'r_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
 
-        #     #         if nxt_node_name[0] == 'p':
-        #     #             right_edges.append(edge)
-        #     #         elif nxt_node_name == f'r_{j-1}':
-        #     #             right_edges.append(edge)
-        #     #         else:
-        #     #             left_edges.append(edge)
+                    if nxt_node_name[0] == 'p':
+                        right_edges.append(edge)
+                    elif nxt_node_name == f'r_{j-1}':
+                        right_edges.append(edge)
+                    else:
+                        left_edges.append(edge)
 
-        #     #     node1, node2 = tn.split_node_rq(
-        #     #         right_nodes[j], left_edges=left_edges, right_edges=right_edges)
-        #     #     right_nodes[j] = node2
-        #     #     right_nodes[j+1] = right_nodes[j+1] @ node1
-        #     #     # right_nodes[j+1].tensor = right_nodes[j+1].tensor / \
-        #     #     #     right_nodes[j+1].tensor.norm()
-        #     #     right_nodes[j].name = f'r_{j}'
-        #     #     right_nodes[j+1].name = f'r_{j+1}'
+                node1, node2 = tn.split_node_rq(
+                    right_nodes[j], left_edges=left_edges, right_edges=right_edges)
+                right_nodes[j] = node2
+                right_nodes[j+1] = right_nodes[j+1] @ node1
+                # right_nodes[j+1].tensor = right_nodes[j+1].tensor / \
+                #     right_nodes[j+1].tensor.norm()
+                right_nodes[j].name = f'r_{j}'
+                right_nodes[j+1].name = f'r_{j+1}'
 
-        #     # # SVD
-        #     # for j in range(self.ynodes-1, 0, -1):
-        #     #     tmp_node = right_nodes[j] @ right_nodes[j-1]
-        #     #     left_edges = []
-        #     #     right_edges = []
+            # SVD
+            for j in range(self.ynodes-1, 0, -1):
+                tmp_node = right_nodes[j] @ right_nodes[j-1]
+                left_edges = []
+                right_edges = []
 
-        #     #     for edge in tmp_node.edges:
-        #     #         if not edge.node2 and not edge.node1:
-        #     #             continue
-        #     #         nxt_node_name = edge.node1.name if edge.node1.name != f'r_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
+                for edge in tmp_node.edges:
+                    if not edge.node2 and not edge.node1:
+                        continue
+                    nxt_node_name = edge.node1.name if edge.node1.name != f'r_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
 
-        #     #         if nxt_node_name == f'p_{i-1}_{j}':
-        #     #             left_edges.append(edge)
-        #     #         elif nxt_node_name == f'p_{i-1}_{j-1}':
-        #     #             right_edges.append(edge)
-        #     #         elif nxt_node_name == f'r_{j+1}':
-        #     #             left_edges.append(edge)
-        #     #         else:
-        #     #             right_edges.append(edge)
+                    if nxt_node_name == f'p_{i-1}_{j}':
+                        left_edges.append(edge)
+                    elif nxt_node_name == f'p_{i-1}_{j-1}':
+                        right_edges.append(edge)
+                    elif nxt_node_name == f'r_{j+1}':
+                        left_edges.append(edge)
+                    else:
+                        right_edges.append(edge)
 
-        #     #     node1, node2, _ = tn.split_node(
-        #     #         tmp_node, left_edges=left_edges, right_edges=right_edges, max_singular_values=self.max_singular_values)
+                node1, node2, _ = tn.split_node(
+                    tmp_node, left_edges=left_edges, right_edges=right_edges, max_singular_values=self.max_singular_values)
 
-        #     #     right_nodes[j] = node1
-        #     #     right_nodes[j-1] = node2
-        #     #     right_nodes[j].name = f'r_{j}'
-        #     #     right_nodes[j-1].name = f'r_{j-1}'
+                right_nodes[j] = node1
+                right_nodes[j-1] = node2
+                right_nodes[j].name = f'r_{j}'
+                right_nodes[j-1].name = f'r_{j-1}'
 
-        #     #     # QR Decomposition
-        #     #     left_edges = []
-        #     #     right_edges = []
+                # QR Decomposition
+                left_edges = []
+                right_edges = []
 
-        #     #     for edge in right_nodes[j].edges:
-        #     #         if not edge.node2 and not edge.node1:
-        #     #             continue
-        #     #         nxt_node_name = edge.node1.name if edge.node1.name != f'r_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
+                for edge in right_nodes[j].edges:
+                    if not edge.node2 and not edge.node1:
+                        continue
+                    nxt_node_name = edge.node1.name if edge.node1.name != f'r_{j}' and edge.node1.name != '__unnamed_node__' else edge.node2.name
 
-        #     #         if nxt_node_name[0] == 'p':
-        #     #             left_edges.append(edge)
-        #     #         elif nxt_node_name == f'r_{j+1}':
-        #     #             left_edges.append(edge)
-        #     #         else:
-        #     #             right_edges.append(edge)
+                    if nxt_node_name[0] == 'p':
+                        left_edges.append(edge)
+                    elif nxt_node_name == f'r_{j+1}':
+                        left_edges.append(edge)
+                    else:
+                        right_edges.append(edge)
 
-        #     #     node1, node2 = tn.split_node_qr(
-        #     #         right_nodes[j], left_edges=left_edges, right_edges=right_edges)
+                node1, node2 = tn.split_node_qr(
+                    right_nodes[j], left_edges=left_edges, right_edges=right_edges)
 
-        #     #     right_nodes[j] = node1
-        #     #     right_nodes[j].name = f'r_{j}'
-        #     #     right_nodes[j-1] = node2 @ right_nodes[j-1]
-        #     #     # right_nodes[j-1].tensor = right_nodes[j-1].tensor / \
-        #     #     #     right_nodes[j-1].tensor.norm()
-        #     #     right_nodes[j-1].name = f'r_{j-1}'
+                right_nodes[j] = node1
+                right_nodes[j].name = f'r_{j}'
+                right_nodes[j-1] = node2 @ right_nodes[j-1]
+                # right_nodes[j-1].tensor = right_nodes[j-1].tensor / \
+                #     right_nodes[j-1].tensor.norm()
+                right_nodes[j-1].name = f'r_{j-1}'
 
-        # for j in range(self.ynodes):
-        #     middle_nodes[j] = left_nodes[j] @ middle_nodes[j]
-        #     # middle_nodes[j].tensor = middle_nodes[j].tensor / \
-        #     #     middle_nodes[j].tensor.norm()
+        for j in range(self.ynodes):
+            middle_nodes[j] = left_nodes[j] @ middle_nodes[j]
+            # middle_nodes[j].tensor = middle_nodes[j].tensor / \
+            #     middle_nodes[j].tensor.norm()
 
-        # for j in range(self.ynodes):
-        #     middle_nodes[j] = right_nodes[j] @ middle_nodes[j]
-        #     # middle_nodes[j].tensor = middle_nodes[j].tensor / \
-        #     #     middle_nodes[j].tensor.norm()
+        for j in range(self.ynodes):
+            middle_nodes[j] = right_nodes[j] @ middle_nodes[j]
+            # middle_nodes[j].tensor = middle_nodes[j].tensor / \
+            #     middle_nodes[j].tensor.norm()
 
-        # down_node = middle_nodes[0]
-        # up_node = middle_nodes[self.ynodes-1]
+        down_node = middle_nodes[0]
+        up_node = middle_nodes[self.ynodes-1]
 
-        # for j in range(1, cy+1):
-        #     down_node = down_node @ middle_nodes[j]
-        #     # down_node.tensor = down_node.tensor / down_node.tensor.norm()
+        for j in range(1, cy+1):
+            down_node = down_node @ middle_nodes[j]
+            down_node.tensor = down_node.tensor / down_node.tensor.norm()
 
-        # for j in range(self.ynodes-2, cy, -1):
-        #     up_node = up_node @ middle_nodes[j]
-        #     # up_node.tensor = up_node.tensor / up_node.tensor.norm()
+        for j in range(self.ynodes-2, cy, -1):
+            up_node = up_node @ middle_nodes[j]
+            up_node.tensor = up_node.tensor / up_node.tensor.norm()
 
-        # result = (down_node @ up_node).tensor
+        result = (down_node @ up_node).tensor
 
         # Contract the remaining peps (With Auto Mode)
-        result = contractors.auto(contracted_nodes).tensor
+        # result = contractors.auto(contracted_nodes).tensor
         # print(result[0].item())
 
         result = result.view([10]) / result.norm()
@@ -455,7 +456,8 @@ class PEPSCNNLayer(nn.Module):
             xnodes=28//4,
             ynodes=28//4,
             bond_dim=hyper_params['bond_dim'],
-            max_singular_values=hyper_params['max_singular_values']
+            max_singular_values=hyper_params['max_singular_values'],
+            truncate_svd=hyper_params['truncate_svd']
         )
 
     def forward(self, inputs):

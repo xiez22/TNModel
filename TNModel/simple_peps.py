@@ -4,7 +4,7 @@ import numpy.linalg as linalg
 
 def simple_peps_tensor(shape, std=1e-2, init_method='uniform'):
     if init_method == 'uniform':
-        a = np.random.uniform(0.0, 2.0, size=shape)
+        a = np.random.uniform(0.0, 1.0, size=shape)
         a = a / linalg.norm(a)
         return a
     if init_method == 'eye':
